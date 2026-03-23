@@ -1,0 +1,63 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment & secrets (never commit)
+.env
+.env.*
+!.env.example
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checkers / linters
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Packaging / build
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Local databases / dumps
+*.db
+*.sqlite
+*.sqlite3
+
+# Alembic (keep versions/ tracked)
+# Uncomment if you generate local-only revisions you don't want to commit:
+# alembic/versions/*.py
