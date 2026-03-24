@@ -131,7 +131,9 @@ async def validate_oauth_state(db: AsyncSession, state: str) -> bool:
 
 
 def build_google_auth_url(state: str, redirect_uri: str) -> str:
-    """Construye URL de autorización de Google."""
+    """Construye URL de autorización de Google con parámetros correctamente encoded."""
+    from urllib.parse import urlencode
+
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": redirect_uri,
@@ -141,8 +143,7 @@ def build_google_auth_url(state: str, redirect_uri: str) -> str:
         "access_type": "offline",
         "prompt": "consent",
     }
-    qs = "&".join(f"{k}={v}" for k, v in params.items())
-    return f"{GOOGLE_AUTH_URL}?{qs}"
+    return f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
 
 
 async def exchange_google_code(code: str, redirect_uri: str) -> Tuple[str, str, str, str] | None:

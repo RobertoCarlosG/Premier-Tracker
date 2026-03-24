@@ -48,14 +48,22 @@ COOKIE_MAX_AGE_REFRESH = 30 * 24 * 60 * 60  # 30 días
 
 
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
-    """Establece cookies httpOnly para tokens (según regla ética)."""
+    """
+    Establece cookies httpOnly para tokens.
+    En producción (HTTPS) usa SameSite=none para permitir peticiones cross-origin
+    entre el frontend (Vercel) y el backend (Render).
+    En desarrollo usa SameSite=lax (mismo origen).
+    """
+    is_secure = settings.FRONTEND_URL.startswith("https")
+    samesite = "none" if is_secure else "lax"
+
     response.set_cookie(
         key="access_token",
         value=access_token,
         max_age=COOKIE_MAX_AGE_ACCESS,
         httponly=True,
-        secure=settings.FRONTEND_URL.startswith("https"),
-        samesite="lax",
+        secure=is_secure,
+        samesite=samesite,
         path="/",
     )
     response.set_cookie(
@@ -63,8 +71,8 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
         value=refresh_token,
         max_age=COOKIE_MAX_AGE_REFRESH,
         httponly=True,
-        secure=settings.FRONTEND_URL.startswith("https"),
-        samesite="lax",
+        secure=is_secure,
+        samesite=samesite,
         path="/",
     )
 
@@ -186,7 +194,12 @@ async def google_auth(
     state = secrets.token_urlsafe(32)
     await save_oauth_state(db, state)
 
-    uri = redirect_uri or f"{settings.BACKEND_URL}/auth/google/callback"
+    # Prioridad: 1) query param explícito (dev), 2) GOOGLE_REDIRECT_URI del .env, 3) construido desde BACKEND_URL
+    uri = (
+        redirect_uri
+        or settings.GOOGLE_REDIRECT_URI
+        or f"{settings.BACKEND_URL}/auth/google/callback"
+    )
     url = build_google_auth_url(state, uri)
 
     from fastapi.responses import RedirectResponse
@@ -205,7 +218,10 @@ async def google_callback(
     if not await validate_oauth_state(db, state):
         raise HTTPException(status_code=400, detail="Estado OAuth inválido o expirado")
 
-    redirect_uri = f"{settings.BACKEND_URL}/auth/google/callback"
+    redirect_uri = (
+        settings.GOOGLE_REDIRECT_URI
+        or f"{settings.BACKEND_URL}/auth/google/callback"
+    )
     result = await exchange_google_code(code, redirect_uri)
     if not result:
         raise HTTPException(status_code=400, detail="Error al obtener datos de Google")
