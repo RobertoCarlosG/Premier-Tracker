@@ -5,11 +5,17 @@ from app.core.config import settings
 
 class ValorantAPIClient:
     def __init__(self):
-        self.base_url = settings.VALORANT_API_BASE_URL
+        self.base_url = settings.VALORANT_API_BASE_URL.rstrip("/")
         self.api_key = settings.VALORANT_API_KEY
         self.headers = {
             "Authorization": self.api_key
         }
+
+    def _premier_base_url(self) -> str:
+        """Henrik expone Premier bajo /valorant/v1/premier (no v3)."""
+        if "/valorant/v3" in self.base_url:
+            return self.base_url.replace("/valorant/v3", "/valorant/v1", 1)
+        return self.base_url
     
     async def _request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
         url = f"{self.base_url}{endpoint}"
@@ -23,12 +29,24 @@ class ValorantAPIClient:
             )
             response.raise_for_status()
             return response.json()
+
+    async def _premier_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
+        url = f"{self._premier_base_url()}{endpoint}"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.request(
+                method=method,
+                url=url,
+                headers=self.headers,
+                **kwargs
+            )
+            response.raise_for_status()
+            return response.json()
     
     async def get_conferences(self) -> Dict[str, Any]:
-        return await self._request("GET", "/premier/conferences")
+        return await self._premier_request("GET", "/premier/conferences")
     
     async def get_seasons(self, affinity: str) -> Dict[str, Any]:
-        return await self._request("GET", f"/premier/seasons/{affinity}")
+        return await self._premier_request("GET", f"/premier/seasons/{affinity}")
     
     async def get_leaderboard(
         self, 
@@ -43,7 +61,7 @@ class ValorantAPIClient:
         else:
             endpoint = f"/premier/leaderboard/{affinity}"
         
-        return await self._request("GET", endpoint)
+        return await self._premier_request("GET", endpoint)
     
     async def search_teams(
         self,
@@ -62,19 +80,19 @@ class ValorantAPIClient:
         if conference:
             params["conference"] = conference
         
-        return await self._request("GET", "/premier/search", params=params)
+        return await self._premier_request("GET", "/premier/search", params=params)
     
     async def get_team_by_name(self, team_name: str, team_tag: str) -> Dict[str, Any]:
-        return await self._request("GET", f"/premier/{team_name}/{team_tag}")
+        return await self._premier_request("GET", f"/premier/{team_name}/{team_tag}")
     
     async def get_team_history_by_name(self, team_name: str, team_tag: str) -> Dict[str, Any]:
-        return await self._request("GET", f"/premier/{team_name}/{team_tag}/history")
+        return await self._premier_request("GET", f"/premier/{team_name}/{team_tag}/history")
     
     async def get_team_by_id(self, team_id: str) -> Dict[str, Any]:
-        return await self._request("GET", f"/premier/{team_id}")
+        return await self._premier_request("GET", f"/premier/{team_id}")
     
     async def get_team_history_by_id(self, team_id: str) -> Dict[str, Any]:
-        return await self._request("GET", f"/premier/{team_id}/history")
+        return await self._premier_request("GET", f"/premier/{team_id}/history")
     
     async def get_account_by_name(self, name: str, tag: str) -> Dict[str, Any]:
         url = settings.VALORANT_API_BASE_URL.replace("/v3", "/v1")

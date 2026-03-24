@@ -3,8 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.orm import declarative_base, sessionmaker
 from app.core.config import settings
 
-# Convert postgresql:// to postgresql+asyncpg://
-ASYNC_DATABASE_URL = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+# Normalize postgres:// (Supabase dashboard) and add asyncpg driver
+_db_url = settings.DATABASE_URL.replace("postgres://", "postgresql://", 1)
+ASYNC_DATABASE_URL = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 engine = create_async_engine(
     ASYNC_DATABASE_URL,

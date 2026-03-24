@@ -14,4 +14,5 @@ COPY . .
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Esquema de BD: aplicar con SQL en Supabase (ver supabase/initial_schema.sql), no Alembic en deploy.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
