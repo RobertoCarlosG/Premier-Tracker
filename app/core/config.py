@@ -1,11 +1,17 @@
-from pydantic_settings import BaseSettings
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        # Render/UI often use different casing; FRONTEND_URL must still load for CORS.
+        case_sensitive=False,
+    )
     # API Configuration
     VALORANT_API_KEY: str
-    VALORANT_API_BASE_URL: str = "https://api.henrikdev.xyz/valorant/v3"
+    VALORANT_API_BASE_URL: str = "https://api.henrikdev.xyz/valorant/v1"
     
     # Demo Mode
     DEMO_MODE: bool = False
@@ -39,18 +45,20 @@ class Settings(BaseSettings):
     RESEND_API_KEY: Optional[str] = None
     EMAIL_FROM: str = "noreply@example.com"
     
-    # CORS
+    # CORS (browser Origin has no trailing slash; strip so allow_origins matches)
     FRONTEND_URL: str = "http://localhost:5173"
     BACKEND_URL: str = "http://localhost:8000"
+
+    @field_validator("FRONTEND_URL", mode="before")
+    @classmethod
+    def normalize_frontend_url(cls, v: object) -> object:
+        if isinstance(v, str):
+            return v.strip().rstrip("/")
+        return v
     
     # App
     APP_NAME: str = "Valorant Premier Dashboard"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-
-
 settings = Settings()
