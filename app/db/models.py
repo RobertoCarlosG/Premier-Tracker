@@ -21,6 +21,7 @@ class User(Base):
 
     oauth_accounts = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    saved_teams = relationship("SavedTeam", back_populates="user", cascade="all, delete-orphan")
 
 
 class OAuthAccount(Base):
@@ -66,7 +67,69 @@ class OAuthState(Base):
     expires_at = Column(DateTime(timezone=True), nullable=False)
 
 
-# --- Modelos existentes (demo, cache, logs) ---
+# ─────────────────────────────────────────
+# EQUIPOS VINCULADOS (Fase 2)
+# ─────────────────────────────────────────
+
+
+class SavedTeam(Base):
+    """Equipo Premier vinculado a un usuario."""
+
+    __tablename__ = "saved_teams"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    team_id = Column(String(255), nullable=False)
+    team_name = Column(String(255), nullable=False)
+    team_tag = Column(String(50), nullable=False)
+    region = Column(String(20), nullable=False)
+    division = Column(String(100), nullable=True)
+    conference = Column(String(100), nullable=True)
+    linked_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_primary = Column(Boolean, default=True, nullable=False)
+
+    __table_args__ = (UniqueConstraint("user_id", "team_id"),)
+    user = relationship("User", back_populates="saved_teams")
+
+
+class TeamSnapshot(Base):
+    """Snapshot periódico de la posición y resultados de un equipo Premier."""
+
+    __tablename__ = "team_snapshots"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    team_id = Column(String(255), nullable=False, index=True)
+    region = Column(String(20), nullable=False)
+    rank_position = Column(Integer, nullable=True)
+    division = Column(String(100), nullable=True)
+    conference = Column(String(100), nullable=True)
+    wins = Column(Integer, nullable=True)
+    losses = Column(Integer, nullable=True)
+    points = Column(Integer, nullable=True)
+    snapshot_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    source = Column(String(20), nullable=False, default="cron")  # cron | manual | onboarding
+
+
+class PlayerSnapshot(Base):
+    """Snapshot periódico del MMR de un jugador perteneciente a un equipo."""
+
+    __tablename__ = "player_snapshots"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    team_id = Column(String(255), nullable=False, index=True)
+    puuid = Column(String(255), nullable=False)
+    player_name = Column(String(255), nullable=True)
+    player_tag = Column(String(50), nullable=True)
+    region = Column(String(20), nullable=False)
+    mmr_current = Column(Integer, nullable=True)
+    rank_tier = Column(String(50), nullable=True)
+    rr_current = Column(Integer, nullable=True)
+    snapshot_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+# ─────────────────────────────────────────
+# Modelos existentes (demo, cache, logs)
+# ─────────────────────────────────────────
 
 
 class DemoUser(Base):

@@ -3,8 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from datetime import datetime
 from app.core.config import settings
-from app.api.v1 import premier, teams, players, demo
+from app.api.v1 import premier, teams, players, demo, my_team
 from app.routers import auth, users
+from app.jobs.snapshot_job import start_scheduler, stop_scheduler
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -43,6 +44,7 @@ app.include_router(premier.router, prefix="/api/v1/premier", tags=["Premier"])
 app.include_router(teams.router, prefix="/api/v1/teams", tags=["Teams"])
 app.include_router(players.router, prefix="/api/v1/players", tags=["Players"])
 app.include_router(demo.router, prefix="/api/v1/demo", tags=["Demo"])
+app.include_router(my_team.router, prefix="/api/v1/my-team", tags=["My Team"])
 
 
 @app.get("/")
@@ -67,11 +69,13 @@ async def health_check():
 
 @app.on_event("startup")
 async def startup_event():
-    print(f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} starting...")
-    print(f"📊 Demo Mode: {'Enabled' if settings.DEMO_MODE else 'Disabled'}")
-    print(f"🌐 Frontend URL: {settings.FRONTEND_URL}")
+    print(f"{settings.APP_NAME} v{settings.APP_VERSION} starting...")
+    print(f"Demo Mode: {'Enabled' if settings.DEMO_MODE else 'Disabled'}")
+    print(f"Frontend URL: {settings.FRONTEND_URL}")
+    await start_scheduler()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    print("👋 Shutting down...")
+    await stop_scheduler()
+    print("Shutdown complete.")
