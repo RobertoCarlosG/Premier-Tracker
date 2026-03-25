@@ -1,3 +1,4 @@
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -96,9 +97,16 @@ async def search_teams(
     
     cache_service = CacheService(db)
     demo_service = DemoService(db)
-    
-    data = await cache_service.search_teams(name, tag, division, conference)
-    
+
+    try:
+        data = await cache_service.search_teams(name, tag, division, conference)
+    except httpx.HTTPStatusError as e:
+        # Errores de Henrik (400/429/5xx): respuesta JSON con CORS en lugar de 500 sin cuerpo.
+        raise HTTPException(
+            status_code=502,
+            detail="La API de datos de Valorant rechazó la búsqueda. Revisa nombre/tag o inténtalo más tarde.",
+        ) from e
+
     teams = data.get("data", [])
     limited_teams, is_limited = demo_service.apply_demo_limits(teams, "search")
     

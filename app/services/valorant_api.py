@@ -1,6 +1,37 @@
 import httpx
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 from app.core.config import settings
+
+# Códigos de región Premier (affinity). Henrik /premier/search espera `division` como entero 1–20,
+# no como "NA"/"EU"; enviar la región ahí provoca 400 Bad Request.
+_PREMIER_AFFINITY_CODES = frozenset({"NA", "EU", "AP", "KR", "LATAM", "BR"})
+
+
+def _normalize_premier_search_division(division: Optional[str]) -> Optional[int]:
+    """Convierte query `division` a entero 1–20 o None si es inválido / es en realidad una región."""
+    if division is None or (isinstance(division, str) and not division.strip()):
+        return None
+    s = division.strip().upper()
+    if s in _PREMIER_AFFINITY_CODES:
+        return None
+    if s.isdigit():
+        n = int(s)
+        if 1 <= n <= 20:
+            return n
+    return None
+
+
+def _split_premier_name_tag(
+    name: Optional[str], tag: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    """Si el usuario escribe 'Nombre#TAG' en un solo campo, separa en name + tag."""
+    if tag and tag.strip():
+        return (name.strip() if name else None, tag.strip())
+    if not name or "#" not in name:
+        return (name.strip() if name else None, None)
+    left, _, right = name.partition("#")
+    n, t = left.strip(), right.strip()
+    return (n or None, t or None)
 
 # Henrik API base — versiones construidas limpiamente sin string-replace.
 # VALORANT_API_BASE_URL puede ser cualquier versión; usamos siempre la raíz.
@@ -54,15 +85,20 @@ class ValorantAPIClient:
         division: Optional[str] = None,
         conference: Optional[str] = None,
     ) -> Dict[str, Any]:
-        params: Dict[str, str] = {}
-        if name:
-            params["name"] = name
-        if tag:
-            params["tag"] = tag
-        if division:
-            params["division"] = division
+        n, t = _split_premier_name_tag(name, tag)
+        params: Dict[str, Any] = {}
+        if n:
+            params["name"] = n
+        if t:
+            params["tag"] = t
+        div_n = _normalize_premier_search_division(division)
+        if div_n is not None:
+            params["division"] = div_n
         if conference:
             params["conference"] = conference
+        # Henrik devuelve 400 si no hay ningún filtro válido (p. ej. solo division=NA mal usado).
+        if not params:
+            return {"data": [], "total": 0}
         return await self._get(f"{_V1}/premier/search", params=params)
 
     async def get_team_by_name(self, team_name: str, team_tag: str) -> Dict[str, Any]:
