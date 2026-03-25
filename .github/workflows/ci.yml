@@ -11,6 +11,21 @@ jobs:
     name: Lint & Test
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d test_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       PYTHONPATH: ${{ github.workspace }}
       DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
@@ -35,8 +50,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Apply database schema (auth + phase2)
+        run: |
+          python scripts/migrate_auth.py
+          python scripts/migrate_phase2.py
+
       - name: Lint with ruff
         run: ruff check app/ --output-format=github || true
 
-      - name: Run tests (mocked — no real DB needed)
+      - name: Run tests
         run: pytest tests/ -v --tb=short

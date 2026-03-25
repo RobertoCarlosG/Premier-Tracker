@@ -126,7 +126,11 @@ async def test_get_my_team_no_team_linked(client: AsyncClient):
     token = _make_token(_FAKE_USER_ID)
 
     with (
-        patch("app.dependencies.get_current_user", return_value=_fake_user()),
+        patch(
+            "app.api.v1.my_team.get_current_user",
+            new_callable=AsyncMock,
+            return_value=_fake_user(),
+        ),
         patch(
             "app.api.v1.my_team._get_primary_team",
             new_callable=AsyncMock,
@@ -144,7 +148,11 @@ async def test_link_team_validation_error(client: AsyncClient):
     """POST /my-team/link con región inválida → 422."""
     token = _make_token(_FAKE_USER_ID)
 
-    with patch("app.dependencies.get_current_user", return_value=_fake_user()):
+    with patch(
+        "app.api.v1.my_team.get_current_user",
+        new_callable=AsyncMock,
+        return_value=_fake_user(),
+    ):
         response = await client.post(
             f"{BASE}/link",
             headers=_auth_headers(token),
@@ -168,24 +176,22 @@ async def test_link_team_duplicate(client: AsyncClient):
     fake_saved.id = uuid.uuid4()
     fake_saved.team_id = _FAKE_TEAM_ID
 
-    with (
-        patch("app.dependencies.get_current_user", return_value=_fake_user()),
-        # Simula que el SELECT retorna un equipo ya existente
-        patch(
-            "app.api.v1.my_team._get_primary_team",
-            new_callable=AsyncMock,
-            return_value=None,
-        ),
-        patch("app.db.session.AsyncSessionLocal"),
-        patch(
-            "sqlalchemy.ext.asyncio.AsyncSession.execute",
-            new_callable=AsyncMock,
-        ) as mock_exec,
-    ):
-        scalar_result = MagicMock()
-        scalar_result.scalar_one_or_none.return_value = fake_saved
-        mock_exec.return_value = scalar_result
+    mock_session = AsyncMock()
+    dup_row = MagicMock()
+    dup_row.scalar_one_or_none = MagicMock(return_value=fake_saved)
+    mock_session.execute = AsyncMock(return_value=dup_row)
 
+    async def _fake_get_db():
+        yield mock_session
+
+    with (
+        patch(
+            "app.api.v1.my_team.get_current_user",
+            new_callable=AsyncMock,
+            return_value=_fake_user(),
+        ),
+        patch("app.api.v1.my_team.get_db", _fake_get_db),
+    ):
         response = await client.post(
             f"{BASE}/link",
             headers=_auth_headers(token),
@@ -206,7 +212,11 @@ async def test_get_snapshots_no_team(client: AsyncClient):
     token = _make_token(_FAKE_USER_ID)
 
     with (
-        patch("app.dependencies.get_current_user", return_value=_fake_user()),
+        patch(
+            "app.api.v1.my_team.get_current_user",
+            new_callable=AsyncMock,
+            return_value=_fake_user(),
+        ),
         patch(
             "app.api.v1.my_team._get_primary_team",
             new_callable=AsyncMock,
@@ -224,7 +234,11 @@ async def test_get_player_snapshots_no_team(client: AsyncClient):
     token = _make_token(_FAKE_USER_ID)
 
     with (
-        patch("app.dependencies.get_current_user", return_value=_fake_user()),
+        patch(
+            "app.api.v1.my_team.get_current_user",
+            new_callable=AsyncMock,
+            return_value=_fake_user(),
+        ),
         patch(
             "app.api.v1.my_team._get_primary_team",
             new_callable=AsyncMock,
@@ -244,7 +258,11 @@ async def test_delete_team_no_team(client: AsyncClient):
     token = _make_token(_FAKE_USER_ID)
 
     with (
-        patch("app.dependencies.get_current_user", return_value=_fake_user()),
+        patch(
+            "app.api.v1.my_team.get_current_user",
+            new_callable=AsyncMock,
+            return_value=_fake_user(),
+        ),
         patch(
             "app.api.v1.my_team._get_primary_team",
             new_callable=AsyncMock,

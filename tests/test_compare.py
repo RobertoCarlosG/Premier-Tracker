@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 from jose import jwt
 
@@ -122,10 +123,15 @@ async def test_compare_requires_auth(client: AsyncClient):
 async def test_compare_missing_rival_team_id(client: AsyncClient):
     """GET /compare/teams sin rival_team_id → 422 (campo requerido)."""
     token = _make_token(_FAKE_USER_ID)
-    response = await client.get(
-        f"{BASE}/teams",
-        headers=_auth_headers(token),
-    )
+    with patch(
+        "app.api.v1.compare.get_current_user",
+        new_callable=AsyncMock,
+        return_value=_fake_user(),
+    ):
+        response = await client.get(
+            f"{BASE}/teams",
+            headers=_auth_headers(token),
+        )
     assert response.status_code == 422
 
 
@@ -142,19 +148,25 @@ async def test_compare_no_team_linked(client: AsyncClient):
     fake_user = _fake_user()
 
     with (
-        patch("app.dependencies.get_current_user", return_value=fake_user),
-        patch("app.api.v1.compare._require_team", side_effect=Exception("No tienes un equipo vinculado")),
-    ):
-        from fastapi import HTTPException
-        with patch(
+        patch(
+            "app.api.v1.compare.get_current_user",
+            new_callable=AsyncMock,
+            return_value=fake_user,
+        ),
+        patch(
             "app.api.v1.compare._require_team",
-            side_effect=HTTPException(status_code=404, detail="No tienes un equipo vinculado"),
-        ):
-            response = await client.get(
-                f"{BASE}/teams",
-                headers=_auth_headers(token),
-                params={"rival_team_id": _RIVAL_TEAM_ID, "rival_region": "NA"},
-            )
+            new_callable=AsyncMock,
+            side_effect=HTTPException(
+                status_code=404,
+                detail="No tienes un equipo vinculado",
+            ),
+        ),
+    ):
+        response = await client.get(
+            f"{BASE}/teams",
+            headers=_auth_headers(token),
+            params={"rival_team_id": _RIVAL_TEAM_ID, "rival_region": "NA"},
+        )
     assert response.status_code == 404
 
 
@@ -166,10 +178,19 @@ async def test_compare_rival_not_found(client: AsyncClient):
     fake_team = _fake_saved_team()
 
     with (
-        patch("app.dependencies.get_current_user", return_value=fake_user),
-        patch("app.api.v1.compare._require_team", return_value=fake_team),
+        patch(
+            "app.api.v1.compare.get_current_user",
+            new_callable=AsyncMock,
+            return_value=fake_user,
+        ),
+        patch(
+            "app.api.v1.compare._require_team",
+            new_callable=AsyncMock,
+            return_value=fake_team,
+        ),
         patch(
             "app.api.v1.compare._api.get_team_by_id",
+            new_callable=AsyncMock,
             side_effect=[
                 _henrik_team_response(),  # mi equipo OK
                 Exception("not found"),   # rival falla
@@ -177,8 +198,13 @@ async def test_compare_rival_not_found(client: AsyncClient):
         ),
         patch(
             "app.services.snapshot_service.get_team_trend",
-            return_value={"rank_delta_7d": None, "rank_delta_30d": None,
-                          "win_rate_7d": None, "win_rate_30d": None},
+            new_callable=AsyncMock,
+            return_value={
+                "rank_delta_7d": None,
+                "rank_delta_30d": None,
+                "win_rate_7d": None,
+                "win_rate_30d": None,
+            },
         ),
     ):
         response = await client.get(
@@ -200,16 +226,30 @@ async def test_compare_success(client: AsyncClient):
     rival_henrik = _henrik_team_response(name="Rival Squad", tag="RIVL", placement=7, wins=6, losses=4)
 
     with (
-        patch("app.dependencies.get_current_user", return_value=fake_user),
-        patch("app.api.v1.compare._require_team", return_value=fake_team),
+        patch(
+            "app.api.v1.compare.get_current_user",
+            new_callable=AsyncMock,
+            return_value=fake_user,
+        ),
+        patch(
+            "app.api.v1.compare._require_team",
+            new_callable=AsyncMock,
+            return_value=fake_team,
+        ),
         patch(
             "app.api.v1.compare._api.get_team_by_id",
+            new_callable=AsyncMock,
             side_effect=[my_henrik, rival_henrik],
         ),
         patch(
             "app.services.snapshot_service.get_team_trend",
-            return_value={"rank_delta_7d": -2, "rank_delta_30d": -5,
-                          "win_rate_7d": 0.75, "win_rate_30d": 0.70},
+            new_callable=AsyncMock,
+            return_value={
+                "rank_delta_7d": -2,
+                "rank_delta_30d": -5,
+                "win_rate_7d": 0.75,
+                "win_rate_30d": 0.70,
+            },
         ),
     ):
         response = await client.get(
@@ -254,16 +294,30 @@ async def test_compare_both_same_rank(client: AsyncClient):
     tied_henrik = _henrik_team_response(placement=5, wins=6, losses=4)
 
     with (
-        patch("app.dependencies.get_current_user", return_value=fake_user),
-        patch("app.api.v1.compare._require_team", return_value=fake_team),
+        patch(
+            "app.api.v1.compare.get_current_user",
+            new_callable=AsyncMock,
+            return_value=fake_user,
+        ),
+        patch(
+            "app.api.v1.compare._require_team",
+            new_callable=AsyncMock,
+            return_value=fake_team,
+        ),
         patch(
             "app.api.v1.compare._api.get_team_by_id",
+            new_callable=AsyncMock,
             side_effect=[tied_henrik, tied_henrik],
         ),
         patch(
             "app.services.snapshot_service.get_team_trend",
-            return_value={"rank_delta_7d": 0, "rank_delta_30d": 0,
-                          "win_rate_7d": 0.6, "win_rate_30d": 0.6},
+            new_callable=AsyncMock,
+            return_value={
+                "rank_delta_7d": 0,
+                "rank_delta_30d": 0,
+                "win_rate_7d": 0.6,
+                "win_rate_30d": 0.6,
+            },
         ),
     ):
         response = await client.get(

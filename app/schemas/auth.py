@@ -42,9 +42,9 @@ class TokenResponse(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    """Request para POST /auth/refresh."""
+    """Request para POST /auth/refresh. El token también puede ir en cookie httpOnly."""
 
-    refresh_token: str
+    refresh_token: str | None = None
 
 
 class LogoutRequest(BaseModel):

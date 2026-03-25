@@ -139,7 +139,8 @@ async def test_get_player_trends_empty():
 @pytest.mark.asyncio
 async def test_get_player_trends_groups_by_puuid():
     """Dos snapshots del mismo jugador → un solo resultado con trend."""
-    old = _make_player_snapshot(puuid="p1", player_name="Ace", mmr_current=1700, days_ago=7)
+    # Ventana 7d: evitar days_ago=7 justo en el borde (clock skew hace caer un punto fuera).
+    old = _make_player_snapshot(puuid="p1", player_name="Ace", mmr_current=1700, days_ago=3)
     new = _make_player_snapshot(puuid="p1", player_name="Ace", mmr_current=1800, days_ago=0)
     db = _mock_db_scalars([old, new])
 
