@@ -3,6 +3,8 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
+# CI y pytest necesitan ver el paquete `app` en la raíz del repo (hermano de `tests/`).
+pythonpath = ["."]
 
 [tool.black]
 line-length = 100

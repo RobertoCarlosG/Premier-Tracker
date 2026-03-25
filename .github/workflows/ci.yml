@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
+      PYTHONPATH: ${{ github.workspace }}
       DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
       JWT_SECRET: ci-test-secret-do-not-use-in-production
       SECRET_KEY: ci-test-secret-do-not-use-in-production
@@ -20,7 +21,8 @@ jobs:
       FRONTEND_URL: http://localhost:5173
       APP_NAME: ValoTracker-CI
       APP_VERSION: 0.0.0-ci
-      HENRIKDEV_API_KEY: ""
+      # Settings usa VALORANT_API_KEY (no HENRIKDEV_API_KEY); sin esto falla al importar app.
+      VALORANT_API_KEY: ci-mock-not-used-in-tests
 
     steps:
       - uses: actions/checkout@v4
