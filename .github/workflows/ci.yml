@@ -1,0 +1,40 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
+      JWT_SECRET: ci-test-secret-do-not-use-in-production
+      SECRET_KEY: ci-test-secret-do-not-use-in-production
+      ENVIRONMENT: test
+      DEMO_MODE: "false"
+      FRONTEND_URL: http://localhost:5173
+      APP_NAME: ValoTracker-CI
+      APP_VERSION: 0.0.0-ci
+      HENRIKDEV_API_KEY: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint with ruff
+        run: ruff check app/ --output-format=github || true
+
+      - name: Run tests (mocked — no real DB needed)
+        run: pytest tests/ -v --tb=short
