@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from datetime import datetime
 from app.core.config import settings
-from app.api.v1 import premier, teams, players, demo, my_team
+from app.api.v1 import premier, teams, players, demo, my_team, compare
 from app.routers import auth, users
 from app.jobs.snapshot_job import start_scheduler, stop_scheduler
 
@@ -45,6 +45,7 @@ app.include_router(teams.router, prefix="/api/v1/teams", tags=["Teams"])
 app.include_router(players.router, prefix="/api/v1/players", tags=["Players"])
 app.include_router(demo.router, prefix="/api/v1/demo", tags=["Demo"])
 app.include_router(my_team.router, prefix="/api/v1/my-team", tags=["My Team"])
+app.include_router(compare.router, prefix="/api/v1/compare", tags=["Compare"])
 
 
 @app.get("/")
