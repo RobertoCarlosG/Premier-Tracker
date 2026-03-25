@@ -1,6 +1,9 @@
+import logging
 import httpx
 from typing import Optional, Dict, Any, Tuple
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Códigos de región Premier (affinity). Henrik /premier/search espera `division` como entero 1–20,
 # no como "NA"/"EU"; enviar la región ahí provoca 400 Bad Request.
@@ -38,6 +41,18 @@ def _split_premier_name_tag(
 _HENRIK_ROOT = "https://api.henrikdev.xyz/valorant"
 _V1 = f"{_HENRIK_ROOT}/v1"
 _V2 = f"{_HENRIK_ROOT}/v2"
+_V3 = f"{_HENRIK_ROOT}/v3"
+
+# OpenAPI affinities: eu, na, latam, br, ap, kr (minúsculas). Enviar LATAM en mayúsculas suele dar 404.
+_HENRIK_AFFINITIES = frozenset({"eu", "na", "latam", "br", "ap", "kr"})
+
+
+def normalize_henrik_affinity(affinity: str) -> str:
+    """Normaliza región al enum de Henrik (minúsculas)."""
+    if not affinity or not str(affinity).strip():
+        return "na"
+    s = str(affinity).strip().lower()
+    return s if s in _HENRIK_AFFINITIES else "na"
 
 
 class ValorantAPIClient:
@@ -127,14 +142,16 @@ class ValorantAPIClient:
 
     async def get_mmr(self, affinity: str, name: str, tag: str) -> Dict[str, Any]:
         """MMR actual del jugador. Requiere v2."""
-        return await self._get(f"{_V2}/mmr/{affinity}/{name}/{tag}")
+        aff = normalize_henrik_affinity(affinity)
+        return await self._get(f"{_V2}/mmr/{aff}/{name}/{tag}")
 
     async def get_mmr_history(self, region: str, name: str, tag: str) -> Dict[str, Any]:
         """Historial de MMR del jugador (v1)."""
-        return await self._get(f"{_V1}/mmr-history/{region}/{name}/{tag}")
+        aff = normalize_henrik_affinity(region)
+        return await self._get(f"{_V1}/mmr-history/{aff}/{name}/{tag}")
 
     # ─────────────────────────────────────────
-    # Partidas (v1 para lista, v2 para detalle)
+    # Partidas (v3 lista por nombre; v1 deprecado / 404 en muchas regiones; v2 detalle)
     # ─────────────────────────────────────────
 
     async def get_match_history(
@@ -145,10 +162,26 @@ class ValorantAPIClient:
         mode: Optional[str] = None,
         size: int = 20,
     ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"size": size}
+        aff = normalize_henrik_affinity(affinity)
+        # OpenAPI v3: size máximo 10
+        sz = max(1, min(int(size), 10))
+        params: Dict[str, Any] = {"size": sz}
         if mode:
             params["mode"] = mode
-        return await self._get(f"{_V1}/matches/{affinity}/{name}/{tag}", params=params)
+        url = f"{_V3}/matches/{aff}/{name}/{tag}"
+        try:
+            return await self._get(url, params=params)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (400, 404):
+                logger.warning(
+                    "Henrik match history vacío o no encontrado: aff=%s name=%s tag=%s status=%s",
+                    aff,
+                    name,
+                    tag,
+                    e.response.status_code,
+                )
+                return {"data": [], "total": 0}
+            raise
 
     async def get_match_details(self, match_id: str) -> Dict[str, Any]:
         """Detalle completo de partida. Requiere v2."""
