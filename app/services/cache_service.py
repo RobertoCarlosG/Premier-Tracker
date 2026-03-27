@@ -19,17 +19,17 @@ class CacheService:
     
     async def get_or_fetch_leaderboard(
         self,
-        affinity: str,
+        region: str,
         conference: Optional[str] = None,
-        division: Optional[str] = None
+        division: Optional[str] = None,
     ) -> Dict[str, Any]:
-        cache_key = self._generate_cache_key("leaderboard", affinity, conference or "", division or "")
+        cache_key = self._generate_cache_key("leaderboard", region, conference or "", division or "")
         
         cached = await self.cache_repo.get(cache_key)
         if cached:
             return cached
         
-        data = await self.api_client.get_leaderboard(affinity, conference, division)
+        data = await self.api_client.get_leaderboard(region, conference, division)
         
         await self.cache_repo.set(
             cache_key=cache_key,
@@ -118,14 +118,14 @@ class CacheService:
         
         return data
     
-    async def get_or_fetch_mmr(self, affinity: str, name: str, tag: str) -> Dict[str, Any]:
-        cache_key = self._generate_cache_key("mmr", affinity, name, tag)
+    async def get_or_fetch_mmr(self, region: str, name: str, tag: str) -> Dict[str, Any]:
+        cache_key = self._generate_cache_key("mmr", region, name, tag)
         
         cached = await self.cache_repo.get(cache_key)
         if cached:
             return cached
         
-        data = await self.api_client.get_mmr(affinity, name, tag)
+        data = await self.api_client.get_mmr(region, name, tag)
         
         await self.cache_repo.set(
             cache_key=cache_key,
@@ -136,21 +136,40 @@ class CacheService:
         
         return data
     
-    async def get_or_fetch_match_history(
-        self,
-        affinity: str,
-        name: str,
-        tag: str,
-        mode: Optional[str] = None,
-        size: int = 20
-    ) -> Dict[str, Any]:
-        cache_key = self._generate_cache_key("match_history", affinity, name, tag, mode or "", size)
+    async def get_or_fetch_mmr_history(self, region: str, name: str, tag: str) -> Dict[str, Any]:
+        """Historial MMR (Henrik v1 mmr-history); cache separado del snapshot v2."""
+        cache_key = self._generate_cache_key("mmr_history", region, name, tag)
         
         cached = await self.cache_repo.get(cache_key)
         if cached:
             return cached
         
-        data = await self.api_client.get_match_history(affinity, name, tag, mode, size)
+        data = await self.api_client.get_mmr_history(region, name, tag)
+        
+        await self.cache_repo.set(
+            cache_key=cache_key,
+            data=data,
+            cache_type="mmr_history",
+            ttl_seconds=settings.CACHE_TTL_MMR,
+        )
+        
+        return data
+    
+    async def get_or_fetch_match_history(
+        self,
+        region: str,
+        name: str,
+        tag: str,
+        mode: Optional[str] = None,
+        size: int = 20,
+    ) -> Dict[str, Any]:
+        cache_key = self._generate_cache_key("match_history", region, name, tag, mode or "", size)
+        
+        cached = await self.cache_repo.get(cache_key)
+        if cached:
+            return cached
+        
+        data = await self.api_client.get_match_history(region, name, tag, mode, size)
         
         await self.cache_repo.set(
             cache_key=cache_key,

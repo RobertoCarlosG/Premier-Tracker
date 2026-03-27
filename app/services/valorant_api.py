@@ -76,21 +76,25 @@ class ValorantAPIClient:
     async def get_conferences(self) -> Dict[str, Any]:
         return await self._get(f"{_V1}/premier/conferences")
 
-    async def get_seasons(self, affinity: str) -> Dict[str, Any]:
-        return await self._get(f"{_V1}/premier/seasons/{affinity}")
+    async def get_seasons(self, region: str) -> Dict[str, Any]:
+        """Henrik: GET /valorant/v1/premier/seasons/{region} (region = eu/na/latam/…)."""
+        aff = normalize_henrik_affinity(region)
+        return await self._get(f"{_V1}/premier/seasons/{aff}")
 
     async def get_leaderboard(
         self,
-        affinity: str,
+        region: str,
         conference: Optional[str] = None,
         division: Optional[str] = None,
     ) -> Dict[str, Any]:
+        """Henrik: GET /valorant/v1/premier/leaderboard/{region}[/{conference}[/{division}]]."""
+        aff = normalize_henrik_affinity(region)
         if division and conference:
-            url = f"{_V1}/premier/leaderboard/{affinity}/{conference}/{division}"
+            url = f"{_V1}/premier/leaderboard/{aff}/{conference}/{division}"
         elif conference:
-            url = f"{_V1}/premier/leaderboard/{affinity}/{conference}"
+            url = f"{_V1}/premier/leaderboard/{aff}/{conference}"
         else:
-            url = f"{_V1}/premier/leaderboard/{affinity}"
+            url = f"{_V1}/premier/leaderboard/{aff}"
         return await self._get(url)
 
     async def search_teams(
@@ -140,9 +144,9 @@ class ValorantAPIClient:
     # MMR (v2) — v1 devuelve data null para MMR
     # ─────────────────────────────────────────
 
-    async def get_mmr(self, affinity: str, name: str, tag: str) -> Dict[str, Any]:
-        """MMR actual del jugador. Requiere v2."""
-        aff = normalize_henrik_affinity(affinity)
+    async def get_mmr(self, region: str, name: str, tag: str) -> Dict[str, Any]:
+        """Henrik: GET /valorant/v2/mmr/{region}/{name}/{tag}."""
+        aff = normalize_henrik_affinity(region)
         return await self._get(f"{_V2}/mmr/{aff}/{name}/{tag}")
 
     async def get_mmr_history(self, region: str, name: str, tag: str) -> Dict[str, Any]:
@@ -156,13 +160,14 @@ class ValorantAPIClient:
 
     async def get_match_history(
         self,
-        affinity: str,
+        region: str,
         name: str,
         tag: str,
         mode: Optional[str] = None,
         size: int = 20,
     ) -> Dict[str, Any]:
-        aff = normalize_henrik_affinity(affinity)
+        """Henrik: GET /valorant/v3/matches/{region}/{name}/{tag}."""
+        aff = normalize_henrik_affinity(region)
         # OpenAPI v3: size máximo 10
         sz = max(1, min(int(size), 10))
         params: Dict[str, Any] = {"size": sz}

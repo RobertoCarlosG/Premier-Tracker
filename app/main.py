@@ -7,6 +7,22 @@ from app.api.v1 import premier, teams, players, demo, my_team, compare
 from app.routers import auth, users
 from app.jobs.snapshot_job import start_scheduler, stop_scheduler
 
+
+def _cors_allow_origins() -> list[str]:
+    origins: list[str] = []
+    for raw in (settings.FRONTEND_URL, "http://localhost:5173"):
+        o = raw.strip().rstrip("/")
+        if o and o not in origins:
+            origins.append(o)
+    extra = (settings.CORS_EXTRA_ORIGINS or "").strip()
+    if extra:
+        for part in extra.split(","):
+            o = part.strip().rstrip("/")
+            if o and o not in origins:
+                origins.append(o)
+    return origins
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
@@ -17,7 +33,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL, "http://localhost:5173"],
+    allow_origins=_cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

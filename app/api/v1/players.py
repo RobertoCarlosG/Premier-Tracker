@@ -1,6 +1,7 @@
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
+from typing import Any, Dict, Optional
 from app.db.session import get_db
 from app.services.cache_service import CacheService
 from app.services.demo_service import DemoService
@@ -21,33 +22,48 @@ async def get_player_account(
     return data
 
 
-@router.get("/mmr/{affinity}/{name}/{tag}")
+@router.get("/mmr/{region}/{name}/{tag}")
 async def get_player_mmr(
-    affinity: str,
+    region: str,
     name: str,
     tag: str,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_verified_user)
+    user=Depends(get_verified_user),
 ):
+    """
+    Proxy v2 MMR + v1 mmr-history. El frontend espera `data.mmr_history` para la gráfica;
+    Henrik lo devuelve en `GET /valorant/v1/mmr-history/{region}/{name}/{tag}`.
+    """
     cache_service = CacheService(db)
-    data = await cache_service.get_or_fetch_mmr(affinity, name, tag)
+    data: Dict[str, Any] = await cache_service.get_or_fetch_mmr(region, name, tag)
+    history_list: list = []
+    try:
+        hist = await cache_service.get_or_fetch_mmr_history(region, name, tag)
+        raw = hist.get("data") if isinstance(hist, dict) else None
+        if isinstance(raw, list):
+            history_list = raw
+    except Exception:
+        pass
+    inner = data.get("data") if isinstance(data, dict) else None
+    if isinstance(inner, dict):
+        inner["mmr_history"] = history_list
     return data
 
 
-@router.get("/matches/{affinity}/{name}/{tag}")
+@router.get("/matches/{region}/{name}/{tag}")
 async def get_player_matches(
-    affinity: str,
+    region: str,
     name: str,
     tag: str,
     mode: Optional[str] = None,
     size: int = 20,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_verified_user)
+    user=Depends(get_verified_user),
 ):
     cache_service = CacheService(db)
     demo_service = DemoService(db)
     
-    data = await cache_service.get_or_fetch_match_history(affinity, name, tag, mode, size)
+    data = await cache_service.get_or_fetch_match_history(region, name, tag, mode, size)
     
     matches = data.get("data", [])
     limited_matches, is_limited = demo_service.apply_demo_limits(matches, "match_history")

@@ -10,6 +10,13 @@ from app.schemas.schemas import LeaderboardResponse, LeaderboardEntry
 router = APIRouter()
 
 
+def _henrik_display_str(value: object) -> str:
+    """Henrik a veces envía division como entero (p. ej. 22); el modelo espera string."""
+    if value is None:
+        return ""
+    return str(value)
+
+
 async def get_verified_user(
     authorization: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db)
@@ -38,25 +45,30 @@ async def get_conferences(db: AsyncSession = Depends(get_db)):
     return data
 
 
-@router.get("/seasons/{affinity}")
-async def get_seasons(affinity: str, db: AsyncSession = Depends(get_db)):
+@router.get("/seasons/{region}")
+async def get_seasons(region: str, db: AsyncSession = Depends(get_db)):
+    """Proxy a Henrik `GET /valorant/v1/premier/seasons/{region}`. `region` = eu | na | latam | …"""
     cache_service = CacheService(db)
-    data = await cache_service.api_client.get_seasons(affinity)
+    data = await cache_service.api_client.get_seasons(region)
     return data
 
 
-@router.get("/leaderboard/{affinity}", response_model=LeaderboardResponse)
+@router.get("/leaderboard/{region}", response_model=LeaderboardResponse)
 async def get_leaderboard(
-    affinity: str,
+    region: str,
     conference: Optional[str] = None,
     division: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_verified_user)
+    user=Depends(get_verified_user),
 ):
+    """
+    Proxy a Henrik Premier leaderboard: `.../premier/leaderboard/{region}` o con conference/division.
+    El segmento es la **región** del OpenAPI de Henrik (no un nombre distinto de “affinity”).
+    """
     cache_service = CacheService(db)
     demo_service = DemoService(db)
     
-    data = await cache_service.get_or_fetch_leaderboard(affinity, conference, division)
+    data = await cache_service.get_or_fetch_leaderboard(region, conference, division)
     
     entries = []
     for item in data.get("data", []):
@@ -64,9 +76,9 @@ async def get_leaderboard(
             rank=item.get("placement", 0),
             team_name=item.get("name", ""),
             team_tag=item.get("tag", ""),
-            team_id=item.get("id", ""),
-            division=item.get("division", ""),
-            conference=item.get("conference", ""),
+            team_id=_henrik_display_str(item.get("id", "")),
+            division=_henrik_display_str(item.get("division", "")) or None,
+            conference=_henrik_display_str(item.get("conference", "")) or None,
             wins=item.get("wins", 0),
             losses=item.get("losses", 0),
             points=item.get("score", 0),

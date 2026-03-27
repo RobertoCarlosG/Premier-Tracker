@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     # CORS (browser Origin has no trailing slash; strip so allow_origins matches)
     FRONTEND_URL: str = "http://localhost:5173"
     BACKEND_URL: str = "http://localhost:8000"
+    # Orígenes extra (coma), p. ej. preview Vercel: https://xxx.vercel.app
+    CORS_EXTRA_ORIGINS: str = ""
 
     @field_validator("FRONTEND_URL", mode="before")
     @classmethod
