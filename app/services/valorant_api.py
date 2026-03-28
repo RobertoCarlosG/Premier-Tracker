@@ -1,6 +1,7 @@
 import logging
 import httpx
 from typing import Optional, Dict, Any, Tuple
+from urllib.parse import quote
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,11 @@ def normalize_henrik_affinity(affinity: str) -> str:
         return "na"
     s = str(affinity).strip().lower()
     return s if s in _HENRIK_AFFINITIES else "na"
+
+
+def _henrik_path_segment(value: str) -> str:
+    """Codifica name/tag para path (espacios y caracteres especiales)."""
+    return quote(str(value).strip(), safe="")
 
 
 class ValorantAPIClient:
@@ -141,18 +147,37 @@ class ValorantAPIClient:
         return await self._get(f"{_V1}/account/{name}/{tag}")
 
     # ─────────────────────────────────────────
-    # MMR (v2) — v1 devuelve data null para MMR
+    # MMR — docs recomiendan v3 (incluye platform); v2 como respaldo
     # ─────────────────────────────────────────
 
     async def get_mmr(self, region: str, name: str, tag: str) -> Dict[str, Any]:
-        """Henrik: GET /valorant/v2/mmr/{region}/{name}/{tag}."""
+        """
+        Henrik: GET /valorant/v3/mmr/{region}/pc/{name}/{tag} (recomendado),
+        fallback GET /valorant/v2/mmr/{region}/{name}/{tag}.
+        """
         aff = normalize_henrik_affinity(region)
-        return await self._get(f"{_V2}/mmr/{aff}/{name}/{tag}")
+        n = _henrik_path_segment(name)
+        t = _henrik_path_segment(tag)
+        url_v3 = f"{_V3}/mmr/{aff}/pc/{n}/{t}"
+        try:
+            return await self._get(url_v3)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code != 404:
+                raise
+            logger.warning(
+                "Henrik v3 MMR 404, trying v2: aff=%s name=%s tag=%s",
+                aff,
+                name,
+                tag,
+            )
+            return await self._get(f"{_V2}/mmr/{aff}/{n}/{t}")
 
     async def get_mmr_history(self, region: str, name: str, tag: str) -> Dict[str, Any]:
         """Historial de MMR del jugador (v1)."""
         aff = normalize_henrik_affinity(region)
-        return await self._get(f"{_V1}/mmr-history/{aff}/{name}/{tag}")
+        n = _henrik_path_segment(name)
+        t = _henrik_path_segment(tag)
+        return await self._get(f"{_V1}/mmr-history/{aff}/{n}/{t}")
 
     # ─────────────────────────────────────────
     # Partidas (v3 lista por nombre; v1 deprecado / 404 en muchas regiones; v2 detalle)

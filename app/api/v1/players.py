@@ -35,7 +35,15 @@ async def get_player_mmr(
     Henrik lo devuelve en `GET /valorant/v1/mmr-history/{region}/{name}/{tag}`.
     """
     cache_service = CacheService(db)
-    data: Dict[str, Any] = await cache_service.get_or_fetch_mmr(region, name, tag)
+    try:
+        data: Dict[str, Any] = await cache_service.get_or_fetch_mmr(region, name, tag)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail="MMR no encontrado para esta región o jugador (Henrik).",
+            ) from e
+        raise
     history_list: list = []
     try:
         hist = await cache_service.get_or_fetch_mmr_history(region, name, tag)
